@@ -24,6 +24,7 @@ import (
 	"yamp/theme"
 	"yamp/ui"
 	"yamp/upgrade"
+	"yamp/web"
 )
 
 // version is set at build time via -ldflags "-X main.version=vX.Y.Z".
@@ -250,6 +251,35 @@ func run(overrides config.Overrides, positional []string) error {
 	return nil
 }
 
+func runWeb(positional []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+	sampleRate := cfg.SampleRate
+	if sampleRate == 0 {
+		sampleRate = 44100
+	}
+	p, err := player.New(player.Quality{
+		SampleRate:      sampleRate,
+		BufferMs:        cfg.BufferMs,
+		ResampleQuality: cfg.ResampleQuality,
+		BitDepth:        cfg.BitDepth,
+	})
+	if err != nil {
+		return err
+	}
+	defer p.Close()
+	pl := playlist.New()
+	if len(positional) > 0 {
+		resolved, _ := resolve.Args(positional)
+		for _, t := range resolved.Tracks {
+			pl.Add(t)
+		}
+	}
+	return web.ListenAndServe(p, pl, 8080)
+}
+
 const helpText = `yamp — retro terminal music player
 
 Usage: yamp [flags] <file|folder|url> [...]
@@ -279,6 +309,7 @@ Appearance:
 General:
   -h, --help              Show this help message
   -v, --version           Show the current version
+  --web                   Start web UI on port 8080 (control from phone)
   --upgrade               Upgrade yamp to the latest release
 
 Examples:
@@ -323,6 +354,12 @@ func main() {
 		return
 	case "upgrade":
 		if err := upgrade.Run(version); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	case "web":
+		if err := runWeb(positional); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}

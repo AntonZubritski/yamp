@@ -196,9 +196,12 @@ func (v *Visualizer) renderCustomText(text string, effect CustomVisEffect, bands
 						visible := false
 						pixelNormY := float64(fontH*scaleY-1-(py*scaleY+sy)) / float64(fontH*scaleY)
 
+						// Minimum outline: always show ~20% of pixels so text is readable.
+						baseVisible := scatterHash(li, py*scaleY+sy+99, px*scaleX+sx+99, v.frame/8) < 0.2
+
 						switch effect {
 						case EffectDissolve:
-							fill := energy*energy*0.75 + 0.15
+							fill := energy*energy*0.75 + 0.25
 							if scatterHash(li, py*scaleY+sy, px*scaleX+sx, v.frame) <= fill {
 								visible = true
 							}
@@ -328,7 +331,7 @@ func (v *Visualizer) renderCustomText(text string, effect CustomVisEffect, bands
 							}
 						}
 
-						if visible {
+						if visible || baseVisible {
 							grid[dy*dotCols+dx] = true
 						}
 					}

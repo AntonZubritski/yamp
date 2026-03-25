@@ -345,6 +345,44 @@ Or add it to PATH (see install steps above).
 
 ---
 
+## Mobile (iPhone / Android)
+
+Control yamp from your phone with the built-in web UI.
+
+**Step 1.** On your computer, run:
+
+```sh
+yamp --web
+```
+
+It will print your local IP addresses, like:
+
+```
+  YAMP Web UI running at:
+  http://localhost:8080
+  http://192.168.1.42:8080
+```
+
+**Step 2.** On your phone, open the browser and go to `http://192.168.1.42:8080` (use the IP from step 1).
+
+**Step 3 (iPhone).** Tap Share → "Add to Home Screen" — now it looks and works like a native app.
+
+**Step 3 (Android).** Tap menu → "Add to Home screen" or "Install app".
+
+> Phone and computer must be on the same Wi-Fi network.
+
+**Android native (Termux):**
+
+You can also run yamp directly on Android via [Termux](https://termux.dev):
+
+```sh
+pkg install golang git libogg libvorbis libflac
+git clone https://github.com/AntonZubritski/yamp.git
+cd yamp && go build -o yamp . && ./yamp
+```
+
+---
+
 ## Providers
 
 All providers are always visible in the player. If one is not configured, selecting it shows setup instructions right in the app.
@@ -845,6 +883,44 @@ C:\путь\к\yamp.exe
 | `S` | Сохранить/скачать трек |
 | `Ctrl+K` | Показать все горячие клавиши |
 | `q` | Выход |
+
+---
+
+## Мобильные устройства (iPhone / Android)
+
+Управляйте yamp с телефона через встроенный веб-интерфейс.
+
+**Шаг 1.** На компьютере запустите:
+
+```sh
+yamp --web
+```
+
+В терминале появятся ваши IP-адреса:
+
+```
+  YAMP Web UI running at:
+  http://localhost:8080
+  http://192.168.1.42:8080
+```
+
+**Шаг 2.** На телефоне откройте браузер и перейдите на `http://192.168.1.42:8080` (IP из шага 1).
+
+**Шаг 3 (iPhone).** Нажмите "Поделиться" → "На экран Домой" — теперь выглядит и работает как нативное приложение.
+
+**Шаг 3 (Android).** Нажмите меню → "Добавить на главный экран" или "Установить приложение".
+
+> Телефон и компьютер должны быть в одной Wi-Fi сети.
+
+**Android напрямую (Termux):**
+
+Можно запустить yamp прямо на Android через [Termux](https://termux.dev):
+
+```sh
+pkg install golang git libogg libvorbis libflac
+git clone https://github.com/AntonZubritski/yamp.git
+cd yamp && go build -o yamp . && ./yamp
+```
 
 ---
 

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0f">
+<title>YAMP</title>
+<link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIllBTVAiLAogICJzaG9ydF9uYW1lIjogIllBTVAiLAogICJzdGFydF91cmwiOiAiLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBhMGEwZiIsCiAgInRoZW1lX2NvbG9yIjogIiMwYTBhMGYiLAogICJpY29ucyI6IFtdCn0=">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Instrument+Serif:ital@0;1&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a0f;
+  --surface:rgba(255,255,255,0.04);
+  --surface-hover:rgba(255,255,255,0.08);
+  --glass:rgba(255,255,255,0.06);
+  --glass-border:rgba(255,255,255,0.08);
+  --text:#f0ece4;
+  --text-dim:rgba(240,236,228,0.45);
+  --text-mid:rgba(240,236,228,0.7);
+  --accent:#c8a4ff;
+  --accent-glow:rgba(200,164,255,0.3);
+  --warm:#ffb86c;
+  --rose:#ff6b8a;
+}
+html,body{
+  height:100%;width:100%;overflow:hidden;
+  font-family:'DM Sans',sans-serif;
+  background:var(--bg);color:var(--text);
+}
+body{
+  display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.app{
+  flex:1;display:flex;flex-direction:column;
+  max-width:430px;margin:0 auto;width:100%;
+  position:relative;overflow:hidden;
+}
+
+/* Ambient background glow */
+.ambient{
+  position:absolute;top:-40%;left:-20%;width:140%;height:100%;
+  background:radial-gradient(ellipse at 30% 20%,rgba(200,164,255,0.08) 0%,transparent 60%),
+             radial-gradient(ellipse at 70% 60%,rgba(255,107,138,0.06) 0%,transparent 50%);
+  filter:blur(60px);pointer-events:none;z-index:0;
+  animation:ambientShift 12s ease-in-out infinite alternate;
+}
+@keyframes ambientShift{
+  0%{transform:translate(0,0) scale(1)}
+  100%{transform:translate(-5%,8%) scale(1.1)}
+}
+
+/* Header */
+.header{
+  padding:16px 24px 8px;z-index:2;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.header h1{
+  font-family:'Instrument Serif',serif;
+  font-size:22px;font-weight:400;letter-spacing:2px;
+  background:linear-gradient(135deg,var(--text),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.status-dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px var(--accent-glow);
+  animation:pulse 2s ease-in-out infinite;
+}
+.status-dot.stopped{background:#555;box-shadow:none;animation:none}
+.status-dot.streaming{background:#4ecdc4;box-shadow:0 0 8px rgba(78,205,196,0.4)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+/* Artwork area */
+.artwork-container{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:16px 32px;z-index:2;min-height:0;
+}
+.artwork{
+  width:min(280px,70vw);aspect-ratio:1;border-radius:24px;
+  background:var(--surface);
+  border:1px solid var(--glass-border);
+  position:relative;overflow:hidden;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.03);
+  transition:transform 0.5s cubic-bezier(0.23,1,0.32,1);
+}
+.artwork.playing{animation:artFloat 6s ease-in-out infinite}
+@keyframes artFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* Visualizer bars inside artwork */
+.viz{
+  position:absolute;bottom:0;left:0;right:0;
+  height:60%;display:flex;align-items:flex-end;
+  justify-content:center;gap:3px;padding:0 20px 20px;
+}
+.viz-bar{
+  flex:1;max-width:14px;border-radius:4px 4px 2px 2px;
+  background:linear-gradient(to top,var(--accent),var(--rose));
+  opacity:0.7;transition:height 0.15s ease;
+  min-height:3px;
+}
+
+/* Track glyph overlay */
+.art-glyph{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-55%);
+  font-family:'Instrument Serif',serif;
+  font-size:64px;font-style:italic;
+  color:rgba(255,255,255,0.06);pointer-events:none;
+  letter-spacing:4px;white-space:nowrap;
+}
+
+/* Track info */
+.track-info{
+  padding:0 28px;z-index:2;text-align:center;
+  min-height:64px;
+}
+.track-title{
+  font-size:18px;font-weight:600;
+  line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  transition:opacity 0.3s;
+}
+.track-artist{
+  font-size:14px;color:var(--text-mid);margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+}
+.track-album{
+  font-size:12px;color:var(--text-dim);margin-top:2px;
+  font-style:italic;
+}
+
+/* Seek bar */
+.seek-section{padding:16px 28px 4px;z-index:2}
+.seek-track{
+  width:100%;height:4px;border-radius:2px;
+  background:var(--surface-hover);
+  position:relative;cursor:pointer;
+  -webkit-appearance:none;appearance:none;outline:none;
+}
+.seek-track::-webkit-slider-runnable-track{
+  height:4px;border-radius:2px;
+  background:linear-gradient(to right,var(--accent) var(--seek-pct,0%),var(--surface-hover) var(--seek-pct,0%));
+}
+.seek-track::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:14px;height:14px;border-radius:50%;
+  background:var(--text);
+  margin-top:-5px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+  transition:transform 0.15s;
+}
+.seek-track:active::-webkit-slider-thumb{transform:scale(1.3)}
+.time-row{
+  display:flex;justify-content:space-between;
+  padding:6px 0;font-size:11px;color:var(--text-dim);
+  font-variant-numeric:tabular-nums;
+}
+
+/* Controls */
+.controls{
+  display:flex;align-items:center;justify-content:center;
+  gap:28px;padding:8px 28px 12px;z-index:2;
+}
+.ctrl-btn{
+  background:none;border:none;color:var(--text-mid);
+  cursor:pointer;padding:8px;border-radius:50%;
+  transition:all 0.2s;display:flex;align-items:center;justify-content:center;
+}
+.ctrl-btn:active{transform:scale(0.88);color:var(--text)}
+.ctrl-btn svg{width:28px;height:28px;fill:currentColor}
+
+.play-btn{
+  width:64px;height:64px;border-radius:50%;
+  background:linear-gradient(135deg,var(--accent),var(--rose));
+  border:none;color:#0a0a0f;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px var(--accent-glow),0 0 0 1px rgba(255,255,255,0.1) inset;
+  transition:all 0.2s cubic-bezier(0.23,1,0.32,1);
+}
+.play-btn:active{transform:scale(0.92);box-shadow:0 2px 10px var(--accent-glow)}
+.play-btn svg{width:26px;height:26px;fill:currentColor;margin-left:2px}
+.play-btn.playing svg{margin-left:0}
+
+/* Volume */
+.volume-section{
+  padding:4px 28px 12px;z-index:2;
+  display:flex;align-items:center;gap:12px;
+}
+.vol-icon{color:var(--text-dim);flex-shrink:0}
+.vol-icon svg{width:16px;height:16px;fill:currentColor}
+.vol-track{
+  flex:1;height:4px;border-radius:2px;
+  -webkit-appearance:none;appearance:none;outline:none;
+  background:var(--surface-hover);
+}
+.vol-track::-webkit-slider-runnable-track{
+  height:4px;border-radius:2px;
+  background:linear-gradient(to right,var(--text-dim) var(--vol-pct,70%),var(--surface-hover) var(--vol-pct,70%));
+}
+.vol-track::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:12px;height:12px;border-radius:50%;
+  background:var(--text);margin-top:-4px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.3);
+}
+
+/* Provider tabs */
+.providers{
+  padding:8px 12px 12px;z-index:2;
+  display:flex;gap:6px;overflow-x:auto;
+  scrollbar-width:none;-ms-overflow-style:none;
+}
+.providers::-webkit-scrollbar{display:none}
+.prov-tab{
+  flex-shrink:0;padding:7px 14px;border-radius:20px;
+  font-size:12px;font-weight:500;letter-spacing:0.3px;
+  background:var(--surface);border:1px solid var(--glass-border);
+  color:var(--text-dim);cursor:pointer;
+  transition:all 0.25s;white-space:nowrap;
+}
+.prov-tab.active{
+  background:rgba(200,164,255,0.12);
+  border-color:rgba(200,164,255,0.25);
+  color:var(--accent);
+}
+.prov-tab:active{transform:scale(0.95)}
+
+/* Bottom safe area */
+.bottom-pad{height:8px;flex-shrink:0}
+
+/* Transitions */
+.fade-in{animation:fadeIn 0.4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Scrollbar for providers */
+@media(hover:hover){
+  .ctrl-btn:hover{color:var(--text);background:var(--surface)}
+  .prov-tab:hover{background:var(--surface-hover);color:var(--text-mid)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ambient"></div>
+
+  <div class="header fade-in">
+    <h1>Y A M P</h1>
+    <div class="status-dot stopped" id="statusDot"></div>
+  </div>
+
+  <div class="artwork-container fade-in">
+    <div class="artwork" id="artwork">
+      <div class="art-glyph" id="artGlyph">YAMP</div>
+      <div class="viz" id="viz"></div>
+    </div>
+  </div>
+
+  <div class="track-info fade-in">
+    <div class="track-title" id="trackTitle">No track loaded</div>
+    <div class="track-artist" id="trackArtist"></div>
+    <div class="track-album" id="trackAlbum"></div>
+  </div>
+
+  <div class="seek-section fade-in">
+    <input type="range" class="seek-track" id="seekBar" min="0" max="100" value="0">
+    <div class="time-row">
+      <span id="timeCur">0:00</span>
+      <span id="timeTotal">0:00</span>
+    </div>
+  </div>
+
+  <div class="controls fade-in">
+    <button class="ctrl-btn" id="btnPrev" onclick="api('prev')">
+      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+    </button>
+    <button class="play-btn" id="btnPlay" onclick="togglePlay()">
+      <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+    </button>
+    <button class="ctrl-btn" id="btnNext" onclick="api('next')">
+      <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+  </div>
+
+  <div class="volume-section fade-in">
+    <div class="vol-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+    </div>
+    <input type="range" class="vol-track" id="volBar" min="0" max="100" value="70">
+  </div>
+
+  <div class="providers fade-in" id="providers">
+    <div class="prov-tab active">Radio</div>
+    <div class="prov-tab">Yandex</div>
+    <div class="prov-tab">Spotify</div>
+    <div class="prov-tab">Navidrome</div>
+    <div class="prov-tab">Plex</div>
+    <div class="prov-tab">YouTube</div>
+  </div>
+
+  <div class="bottom-pad"></div>
+</div>
+
+<script>
+const BARS = 16;
+const viz = document.getElementById('viz');
+for(let i=0;i<BARS;i++){
+  const b=document.createElement('div');
+  b.className='viz-bar';
+  b.style.height='3px';
+  viz.appendChild(b);
+}
+const bars=[...viz.children];
+
+let state={playing:false,paused:false,track:'',artist:'',album:'',position:0,duration:0,volume:0.7,streaming:false};
+let seeking=false;
+let volChanging=false;
+
+function fmt(s){
+  s=Math.floor(s);
+  const m=Math.floor(s/60),sec=s%60;
+  return m+':'+(sec<10?'0':'')+sec;
+}
+
+async function api(action,body){
+  try{
+    const opts={method:'POST'};
+    if(body)opts.body=JSON.stringify(body);
+    await fetch('/api/'+action,opts);
+  }catch(e){}
+}
+
+function togglePlay(){
+  api(state.playing&&!state.paused?'pause':'play');
+}
+
+async function fetchState(){
+  try{
+    const r=await fetch('/api/state');
+    if(!r.ok)return;
+    const s=await r.json();
+    state=s;
+    updateUI();
+  }catch(e){}
+}
+
+function updateUI(){
+  // Status dot
+  const dot=document.getElementById('statusDot');
+  dot.className='status-dot'+(state.playing?(state.streaming?' streaming':''):' stopped');
+
+  // Artwork
+  const art=document.getElementById('artwork');
+  art.classList.toggle('playing',state.playing&&!state.paused);
+
+  // Track info
+  document.getElementById('trackTitle').textContent=state.track||'No track loaded';
+  document.getElementById('trackArtist').textContent=state.artist||'';
+  document.getElementById('trackAlbum').textContent=state.album||'';
+
+  // Glyph
+  const glyph=document.getElementById('artGlyph');
+  if(state.track){
+    const initials=state.track.split(/[\s-]+/).map(w=>w[0]||'').join('').slice(0,4).toUpperCase();
+    glyph.textContent=initials||'YAMP';
+  }else{
+    glyph.textContent='YAMP';
+  }
+
+  // Seek
+  if(!seeking){
+    const pct=state.duration>0?(state.position/state.duration*100):0;
+    const sb=document.getElementById('seekBar');
+    sb.value=pct;
+    sb.max=100;
+    sb.style.setProperty('--seek-pct',pct+'%');
+  }
+  document.getElementById('timeCur').textContent=fmt(state.position);
+  document.getElementById('timeTotal').textContent=fmt(state.duration);
+
+  // Play button
+  const icon=document.getElementById('playIcon');
+  const btn=document.getElementById('btnPlay');
+  if(state.playing&&!state.paused){
+    icon.innerHTML='<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+    btn.classList.add('playing');
+  }else{
+    icon.innerHTML='<path d="M8 5v14l11-7z"/>';
+    btn.classList.remove('playing');
+  }
+
+  // Volume
+  if(!volChanging){
+    const vb=document.getElementById('volBar');
+    const v=Math.round(state.volume*100);
+    vb.value=v;
+    vb.style.setProperty('--vol-pct',v+'%');
+  }
+
+  // Visualizer bars
+  updateBars();
+}
+
+function updateBars(){
+  const active=state.playing&&!state.paused;
+  bars.forEach((b,i)=>{
+    if(active){
+      const phase=Date.now()/300+i*0.7;
+      const h=15+Math.sin(phase)*12+Math.cos(phase*1.3+i)*10+Math.random()*8;
+      b.style.height=Math.max(3,h)+'%';
+      b.style.opacity='0.7';
+    }else{
+      b.style.height='3px';
+      b.style.opacity='0.3';
+    }
+  });
+}
+
+// Seek bar events
+const seekBar=document.getElementById('seekBar');
+seekBar.addEventListener('input',e=>{
+  seeking=true;
+  const pct=e.target.value;
+  seekBar.style.setProperty('--seek-pct',pct+'%');
+  document.getElementById('timeCur').textContent=fmt(state.duration*pct/100);
+});
+seekBar.addEventListener('change',e=>{
+  const pos=state.duration*e.target.value/100;
+  api('seek',{position:Math.floor(pos)});
+  seeking=false;
+});
+
+// Volume events
+const volBar=document.getElementById('volBar');
+volBar.addEventListener('input',e=>{
+  volChanging=true;
+  const v=e.target.value;
+  volBar.style.setProperty('--vol-pct',v+'%');
+});
+volBar.addEventListener('change',e=>{
+  api('volume',{volume:e.target.value/100});
+  setTimeout(()=>volChanging=false,500);
+});
+
+// Provider tabs
+document.getElementById('providers').addEventListener('click',e=>{
+  if(!e.target.classList.contains('prov-tab'))return;
+  document.querySelectorAll('.prov-tab').forEach(t=>t.classList.remove('active'));
+  e.target.classList.add('active');
+});
+
+// Animate bars continuously
+function animLoop(){
+  if(state.playing&&!state.paused)updateBars();
+  requestAnimationFrame(animLoop);
+}
+animLoop();
+
+// Poll state
+setInterval(fetchState,500);
+fetchState();
+</script>
+</body>
+</html>

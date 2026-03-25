@@ -96,6 +96,8 @@ func ParseFlags(args []string) (action string, ov Overrides, positional []string
 			return "version", ov, nil, nil
 		case "--upgrade":
 			return "upgrade", ov, nil, nil
+		case "--web":
+			return "web", ov, nil, nil
 
 		// Boolean flags.
 		case "--shuffle":
