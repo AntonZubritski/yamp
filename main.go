@@ -1,0 +1,336 @@
+// Package main is the entry point for the YAMP terminal music player.
+package main
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"yamp/config"
+	"yamp/external/local"
+	"yamp/external/navidrome"
+	"yamp/external/plex"
+	"yamp/external/radio"
+	"yamp/external/spotify"
+	"yamp/external/yandex"
+	"yamp/external/ytmusic"
+	"yamp/internal/resume"
+	"yamp/mpris"
+	"yamp/player"
+	"yamp/playlist"
+	"yamp/resolve"
+	"yamp/theme"
+	"yamp/ui"
+	"yamp/upgrade"
+)
+
+// version is set at build time via -ldflags "-X main.version=vX.Y.Z".
+var version string
+
+func run(overrides config.Overrides, positional []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	overrides.Apply(&cfg)
+
+	// Build provider list: Radio is always available, Navidrome and Spotify if configured.
+	radioProv := radio.New()
+	var providers []ui.ProviderEntry
+	providers = append(providers, ui.ProviderEntry{Key: "radio", Name: "Radio", Provider: radioProv})
+
+	// Navidrome
+	var navClient *navidrome.NavidromeClient
+	if c := navidrome.NewFromConfig(cfg.Navidrome); c != nil {
+		navClient = c
+	} else if c := navidrome.NewFromEnv(); c != nil {
+		navClient = c
+	}
+	if navClient != nil {
+		providers = append(providers, ui.ProviderEntry{Key: "navidrome", Name: "Navidrome", Provider: navClient})
+	} else {
+		providers = append(providers, ui.ProviderEntry{Key: "navidrome", Name: "Navidrome", Provider: ui.NewSetupProvider("Navidrome")})
+	}
+
+	// Plex
+	if plexProv := plex.NewFromConfig(cfg.Plex); plexProv != nil {
+		providers = append(providers, ui.ProviderEntry{Key: "plex", Name: "Plex", Provider: plexProv})
+	} else {
+		providers = append(providers, ui.ProviderEntry{Key: "plex", Name: "Plex", Provider: ui.NewSetupProvider("Plex")})
+	}
+
+	// Yandex Music (always present, handles its own auth flow)
+	yandexProv := yandex.New(cfg.Yandex.Token)
+	providers = append(providers, ui.ProviderEntry{Key: "yandex", Name: "Yandex Music", Provider: yandexProv})
+
+	// Spotify
+	var spotifyProv *spotify.SpotifyProvider
+	if cfg.Spotify.IsSet() {
+		spotifyProv = spotify.New(nil, cfg.Spotify.ClientID)
+		providers = append(providers, ui.ProviderEntry{Key: "spotify", Name: "Spotify", Provider: spotifyProv})
+	} else {
+		providers = append(providers, ui.ProviderEntry{Key: "spotify", Name: "Spotify", Provider: ui.NewSetupProvider("Spotify")})
+	}
+
+	// YouTube / YouTube Music
+	var ytProviders ytmusic.Providers
+	ytWanted := cfg.YouTubeMusic.IsSetOrFallback(ytmusic.FallbackCredentials)
+	if !ytWanted {
+		switch cfg.Provider {
+		case "yt", "youtube", "ytmusic":
+			ytWanted = true
+		}
+	}
+	ytAdded := false
+	if ytWanted {
+		ytClientID, ytClientSecret := cfg.YouTubeMusic.ResolveCredentials(ytmusic.FallbackCredentials)
+		if cfg.YouTubeMusic.CookiesFrom != "" {
+			player.SetYTDLCookiesFrom(cfg.YouTubeMusic.CookiesFrom)
+		}
+		if ytClientID != "" && ytClientSecret != "" {
+			if !player.YTDLPAvailable() {
+				fmt.Fprintf(os.Stderr, "\nYouTube requires yt-dlp for audio playback.\n")
+				fmt.Fprintf(os.Stderr, "Install command: %s\n\n", player.YtdlpInstallHint())
+				fmt.Fprintf(os.Stderr, "Press Enter to install automatically, or Ctrl+C to skip... ")
+				fmt.Scanln()
+				fmt.Fprintf(os.Stderr, "Installing yt-dlp...\n")
+				if err := player.InstallYTDLP(); err != nil {
+					fmt.Fprintf(os.Stderr, "Installation failed: %v\n", err)
+					fmt.Fprintf(os.Stderr, "YouTube providers disabled. Install manually and restart.\n\n")
+				} else {
+					fmt.Fprintf(os.Stderr, "yt-dlp installed successfully!\n\n")
+				}
+			}
+			if player.YTDLPAvailable() {
+				ytProviders = ytmusic.New(nil, ytClientID, ytClientSecret, cfg.YouTubeMusic.CookiesFrom != "")
+				providers = append(providers,
+					ui.ProviderEntry{Key: "yt", Name: "YouTube (All)", Provider: ytProviders.All},
+					ui.ProviderEntry{Key: "youtube", Name: "YouTube", Provider: ytProviders.Video},
+					ui.ProviderEntry{Key: "ytmusic", Name: "YouTube Music", Provider: ytProviders.Music},
+				)
+				ytAdded = true
+			}
+		}
+	}
+	if !ytAdded {
+		providers = append(providers, ui.ProviderEntry{Key: "youtube", Name: "YouTube", Provider: ui.NewSetupProvider("YouTube")})
+	}
+
+	localProv := local.New()
+
+	if spotifyProv != nil {
+		defer spotifyProv.Close()
+	}
+	if ytProviders.Music != nil {
+		defer ytProviders.Music.Close()
+	}
+
+	if len(positional) > 0 && (positional[0] == "search" || positional[0] == "search-sc") {
+		if len(positional) == 1 {
+			return fmt.Errorf("search requires a query string (e.g. yamp search \"never gonna give you up\")")
+		}
+		prefix := "ytsearch1:"
+		if positional[0] == "search-sc" {
+			prefix = "scsearch1:"
+		}
+		query := strings.Join(positional[1:], " ")
+		positional = []string{prefix + query}
+	}
+
+	resolved, err := resolve.Args(positional)
+	if err != nil {
+		return err
+	}
+
+	// Determine default provider key.
+	defaultProvider := cfg.Provider
+	if defaultProvider == "" {
+		defaultProvider = "radio"
+	}
+
+	// No args + radio provider: stream the built-in radio directly.
+	if len(positional) == 0 && defaultProvider == "radio" {
+		resolved.Pending = append(resolved.Pending, "https://radio.yamp.stream/streams.m3u")
+	}
+
+	pl := playlist.New()
+	pl.Add(resolved.Tracks...)
+
+	// Resolve sample rate: 0 means auto-detect from the system's default
+	// output audio device (e.g. 48 kHz for USB-C headphones). Falls back
+	// to 44100 Hz if detection is unavailable or returns an unusable value.
+	sampleRate := cfg.SampleRate
+	if sampleRate == 0 {
+		if detected := player.DeviceSampleRate(); detected > 0 {
+			sampleRate = detected
+		} else {
+			sampleRate = 44100
+		}
+	}
+
+	p, err := player.New(player.Quality{
+		SampleRate:      sampleRate,
+		BufferMs:        cfg.BufferMs,
+		ResampleQuality: cfg.ResampleQuality,
+		BitDepth:        cfg.BitDepth,
+	})
+	if err != nil {
+		return fmt.Errorf("player: %w", err)
+	}
+	defer p.Close()
+
+	// Register Spotify streamer factory so spotify: URIs are decoded
+	// through go-librespot instead of the normal file/HTTP pipeline.
+	if spotifyProv != nil {
+		p.SetStreamerFactory(spotifyProv.NewStreamer)
+	}
+
+	cfg.ApplyPlayer(p)
+	cfg.ApplyPlaylist(pl)
+
+	themes := theme.LoadAll()
+
+	m := ui.NewModel(p, pl, providers, defaultProvider, localProv, themes, cfg.Navidrome, navClient)
+	m.SetURLResolver(yandexProv.ResolveDirectURL)
+	m.SetRadioTrackLoader(yandexProv.LoadRadioTracks)
+	m.SetYandexProvider(yandexProv)
+	m.SetSeekStepLarge(cfg.SeekStepLargeDuration())
+	m.SetPendingURLs(resolved.Pending)
+	if len(resolved.Tracks) == 0 && len(resolved.Pending) == 0 {
+		m.StartInProvider()
+	}
+	if cfg.EQPreset != "" && cfg.EQPreset != "Custom" {
+		m.SetEQPreset(cfg.EQPreset)
+	}
+	if cfg.Theme != "" {
+		m.SetTheme(cfg.Theme)
+	}
+	if cfg.Visualizer != "" {
+		m.SetVisualizer(cfg.Visualizer)
+	}
+	if cfg.AutoPlay {
+		m.SetAutoPlay(true)
+	}
+	if cfg.Compact {
+		m.SetCompact(true)
+	}
+
+	// PositionSec == 0 is indistinguishable from "never played"; skip resume.
+	if rs := resume.Load(); rs.Path != "" && rs.PositionSec > 0 {
+		m.SetResume(rs.Path, rs.PositionSec)
+	}
+
+	prog := tea.NewProgram(m, tea.WithAltScreen())
+
+	if svc, err := mpris.New(func(msg interface{}) { prog.Send(msg) }); err == nil && svc != nil {
+		defer svc.Close()
+		go prog.Send(mpris.InitMsg{Svc: svc})
+	}
+
+	finalModel, err := prog.Run()
+	if err != nil {
+		return err
+	}
+
+	// Persist theme selection and resume state across restarts.
+	if fm, ok := finalModel.(ui.Model); ok {
+		themeName := fm.ThemeName()
+		if themeName == theme.DefaultName {
+			themeName = ""
+		}
+		_ = config.Save("theme", fmt.Sprintf("%q", themeName)) // best-effort — non-critical persistence
+
+		if path, secs := fm.ResumeState(); path != "" && secs > 0 {
+			resume.Save(path, secs)
+		}
+	}
+
+	return nil
+}
+
+const helpText = `yamp — retro terminal music player
+
+Usage: yamp [flags] <file|folder|url> [...]
+
+Playback:
+  --volume <dB>           Volume in dB, range [-30, +6] (e.g. --volume -5)
+  --shuffle
+  --repeat <off|all|one>
+  --mono / --no-mono
+  --auto-play             Start playback immediately
+
+Audio engine:
+  --sample-rate <Hz>      Output sample rate (0=auto, 22050, 44100, 48000, 96000, 192000)
+  --buffer-ms <ms>        Speaker buffer in milliseconds (50–500)
+  --resample-quality <n>  Resample quality factor (1–4)
+  --bit-depth <n>         PCM bit depth: 16 (default) or 32 (lossless)
+
+Provider:
+  --provider <name>       Default provider: radio, navidrome, plex, spotify, yandex, yt, youtube, ytmusic (default: radio)
+
+Appearance:
+  --compact               Compact mode (cap width at 80 columns)
+  --theme <name>          UI theme name
+  --visualizer <mode>     Visualizer mode (Bars, Bricks, Columns, Wave, Scatter, Flame, Retro, Pulse, Matrix, Binary, None)
+  --eq-preset <name>      EQ preset name (e.g. "Bass Boost")
+
+General:
+  -h, --help              Show this help message
+  -v, --version           Show the current version
+  --upgrade               Upgrade yamp to the latest release
+
+Examples:
+  yamp track.mp3 song.flac ~/Music
+  yamp --shuffle --volume -5 track.mp3
+  yamp track.mp3 --repeat all --mono
+  yamp --auto-play --shuffle ~/Music
+  yamp --eq-preset "Bass Boost" ~/Music
+  yamp https://example.com/song.mp3
+  yamp http://radio.example.com/stream.m3u
+  yamp search "rick astley"            # search YouTube
+  yamp search-sc "lofi beats"            # search SoundCloud
+  yamp https://soundcloud.com/user/sets/playlist
+  yamp https://www.youtube.com/watch?v=...
+
+Environment:
+  NAVIDROME_URL, NAVIDROME_USER, NAVIDROME_PASS   Navidrome server (env fallback)
+
+Config:    ~/.config/yamp/config.toml  (see config.toml.example)
+Radios:    ~/.config/yamp/radios.toml
+Playlists: ~/.config/yamp/playlists/*.toml
+Formats:   mp3, wav, flac, ogg, m4a, aac, opus, wma (aac/opus/wma need ffmpeg)
+SoundCloud/YouTube/Bandcamp require yt-dlp`
+
+func main() {
+	action, overrides, positional, err := config.ParseFlags(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	switch action {
+	case "help":
+		fmt.Println(helpText)
+		return
+	case "version":
+		if version == "" {
+			fmt.Println("yamp (dev build)")
+		} else {
+			fmt.Printf("yamp %s\n", version)
+		}
+		return
+	case "upgrade":
+		if err := upgrade.Run(version); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if err := run(overrides, positional); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

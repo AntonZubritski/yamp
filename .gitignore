@@ -1,0 +1,11 @@
+yamp
+mp3/
+navdata/
+plans/
+test.md
+spotify.log
+.DS_Store
+docs/ideas.md
+.worktrees/
+*.exe
+*.exe~
