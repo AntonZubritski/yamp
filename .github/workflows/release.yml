@@ -75,8 +75,10 @@ jobs:
 
       - name: Prepare files and checksums
         run: |
-          cd artifacts
-          find . -type f -name 'yamp-*' -exec mv {} . \;
+          mkdir -p release
+          find artifacts -type f -name 'yamp-*' -exec cp {} release/ \;
+          ls -la release/
+          cd release
           sha256sum yamp-* > checksums.txt
           cat checksums.txt
 
@@ -85,5 +87,5 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/yamp-*
-            artifacts/checksums.txt
+            release/yamp-*
+            release/checksums.txt
