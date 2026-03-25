@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+      - name: Install dependencies
+        run: brew install pkg-config libogg libvorbis flac
       - name: Build
         env:
           GOOS: darwin
@@ -37,8 +39,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
-      - name: Install ALSA headers
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libogg-dev libvorbis-dev libflac-dev pkg-config
       - name: Build
         env:
           GOOS: linux
