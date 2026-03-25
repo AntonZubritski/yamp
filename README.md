@@ -27,7 +27,23 @@ A retro terminal music player. Play local files, streams, podcasts, YouTube, You
 
 ## Install
 
-### Download ready-made binary (easiest)
+### One command install (no Go needed)
+
+**macOS / Linux** — open Terminal and run:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AntonZubritski/yamp/main/install.sh | sh
+```
+
+**Windows** — open PowerShell and run:
+
+```powershell
+irm https://raw.githubusercontent.com/AntonZubritski/yamp/main/install.ps1 | iex
+```
+
+That's it. Open a **new** terminal and type `yamp`.
+
+### Or download manually
 
 Go to [Releases](https://github.com/AntonZubritski/yamp/releases/latest) and download the file for your OS:
 
@@ -46,8 +62,6 @@ Go to [Releases](https://github.com/AntonZubritski/yamp/releases/latest) and dow
 chmod +x yamp-*
 sudo mv yamp-* /usr/local/bin/yamp
 ```
-
-Then run `yamp` from any terminal.
 
 ---
 
@@ -516,7 +530,23 @@ MIT
 
 ## Установка
 
-### Скачать готовый файл (проще всего)
+### Установка одной командой (Go не нужен)
+
+**macOS / Linux** — откройте Терминал и выполните:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/AntonZubritski/yamp/main/install.sh | sh
+```
+
+**Windows** — откройте PowerShell и выполните:
+
+```powershell
+irm https://raw.githubusercontent.com/AntonZubritski/yamp/main/install.ps1 | iex
+```
+
+Готово. Откройте **новый** терминал и введите `yamp`.
+
+### Или скачайте вручную
 
 Перейдите в [Releases](https://github.com/AntonZubritski/yamp/releases/latest) и скачайте файл для вашей ОС:
 
@@ -527,16 +557,14 @@ MIT
 | macOS (Apple Silicon M1/M2/M3) | `yamp-darwin-arm64` |
 | Linux | `yamp-linux-amd64` |
 
-**Windows:** переименуйте в `yamp.exe`, положите в любую папку, откройте терминал в этой папке и запустите `.\yamp.exe`
+**Windows:** переименуйте в `yamp.exe`, положите в любую папку, откройте терминал и запустите `.\yamp.exe`
 
-**macOS / Linux:** сделайте исполняемым и переместите в PATH:
+**macOS / Linux:** сделайте исполняемым и переместите:
 
 ```sh
 chmod +x yamp-*
 sudo mv yamp-* /usr/local/bin/yamp
 ```
-
-Затем запускайте `yamp` из любого терминала.
 
 ---
 

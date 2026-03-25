@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="bjarneo/cliamp"
+REPO="AntonZubritski/yamp"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -26,7 +26,12 @@ fi
 
 URL="https://github.com/${REPO}/releases/latest/download/${BINARY}"
 
-echo "Downloading ${BINARY}..."
+echo ""
+echo "  yamp installer"
+echo "  OS: ${OS}  ARCH: ${ARCH}"
+echo "  Downloading ${BINARY}..."
+echo ""
+
 TMP=$(mktemp)
 if command -v curl > /dev/null; then
     curl -fSL -o "$TMP" "$URL"
@@ -38,10 +43,21 @@ fi
 
 chmod +x "$TMP"
 
-if [ -w "$INSTALL_DIR" ]; then
+if [ "$OS" = "windows" ]; then
+    INSTALL_DIR="$HOME/bin"
+    mkdir -p "$INSTALL_DIR"
+    mv "$TMP" "${INSTALL_DIR}/yamp.exe"
+    echo ""
+    echo "  Installed to ${INSTALL_DIR}/yamp.exe"
+    echo "  Add to PATH: export PATH=\"\$HOME/bin:\$PATH\""
+elif [ -w "$INSTALL_DIR" ]; then
     mv "$TMP" "${INSTALL_DIR}/yamp"
+    echo "  Installed to ${INSTALL_DIR}/yamp"
 else
     sudo mv "$TMP" "${INSTALL_DIR}/yamp"
+    echo "  Installed to ${INSTALL_DIR}/yamp"
 fi
 
-echo "Installed yamp to ${INSTALL_DIR}/yamp"
+echo ""
+echo "  Done! Run: yamp"
+echo ""
