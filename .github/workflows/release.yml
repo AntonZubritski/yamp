@@ -29,28 +29,6 @@ jobs:
           name: yamp-darwin-arm64
           path: yamp-darwin-arm64
 
-  build-macos-amd64:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: 'stable'
-      - name: Install x86_64 dependencies via Homebrew
-        run: |
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || true
-          arch -x86_64 /usr/local/bin/brew install pkg-config libogg libvorbis flac 2>/dev/null || brew install pkg-config libogg libvorbis flac
-      - name: Build
-        env:
-          GOOS: darwin
-          GOARCH: amd64
-          CGO_ENABLED: 0
-        run: go build -ldflags="-s -w" -o yamp-darwin-amd64 .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: yamp-darwin-amd64
-          path: yamp-darwin-amd64
-
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -88,7 +66,7 @@ jobs:
           path: yamp-windows-amd64.exe
 
   release:
-    needs: [build-macos-arm64, build-macos-amd64, build-linux, build-windows]
+    needs: [build-macos-arm64, build-linux, build-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
