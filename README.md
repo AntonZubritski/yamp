@@ -27,18 +27,46 @@ A retro terminal music player. Play local files, streams, podcasts, YouTube, You
 
 ## Install
 
-> You need [Go](https://go.dev/dl/) 1.25.5 or later installed on your system. If you don't have it, download and install it first from https://go.dev/dl/
+### Download ready-made binary (easiest)
+
+Go to [Releases](https://github.com/AntonZubritski/yamp/releases/latest) and download the file for your OS:
+
+| OS | File |
+|----|------|
+| Windows | `yamp-windows-amd64.exe` |
+| macOS (Intel) | `yamp-darwin-amd64` |
+| macOS (Apple Silicon M1/M2/M3) | `yamp-darwin-arm64` |
+| Linux | `yamp-linux-amd64` |
+
+**Windows:** rename to `yamp.exe`, put in any folder, open terminal in that folder and run `.\yamp.exe`
+
+**macOS / Linux:** make executable and move to PATH:
+
+```sh
+chmod +x yamp-*
+sudo mv yamp-* /usr/local/bin/yamp
+```
+
+Then run `yamp` from any terminal.
+
+---
+
+### Build from source
+
+> Requires [Go](https://go.dev/dl/) installed. **If `go` is not found** — download and install Go first from https://go.dev/dl/ (click the big blue button, install, restart terminal).
 
 ### Windows (PowerShell)
 
-**Step 1.** Open PowerShell (or Windows Terminal) and clone the repo:
+**Step 1.** Install Go from https://go.dev/dl/ (download the `.msi` file, run it, restart PowerShell)
+
+**Step 2.** Open PowerShell (or Windows Terminal) and clone the repo:
 
 ```powershell
 git clone https://github.com/AntonZubritski/yamp.git
 cd yamp
 ```
 
-**Step 2.** Build:
+**Step 3.** Build:
 
 ```powershell
 go build -o yamp.exe .
@@ -488,18 +516,46 @@ MIT
 
 ## Установка
 
-> Вам нужен [Go](https://go.dev/dl/) версии 1.25.5 или новее. Если его нет — скачайте с https://go.dev/dl/
+### Скачать готовый файл (проще всего)
+
+Перейдите в [Releases](https://github.com/AntonZubritski/yamp/releases/latest) и скачайте файл для вашей ОС:
+
+| ОС | Файл |
+|----|------|
+| Windows | `yamp-windows-amd64.exe` |
+| macOS (Intel) | `yamp-darwin-amd64` |
+| macOS (Apple Silicon M1/M2/M3) | `yamp-darwin-arm64` |
+| Linux | `yamp-linux-amd64` |
+
+**Windows:** переименуйте в `yamp.exe`, положите в любую папку, откройте терминал в этой папке и запустите `.\yamp.exe`
+
+**macOS / Linux:** сделайте исполняемым и переместите в PATH:
+
+```sh
+chmod +x yamp-*
+sudo mv yamp-* /usr/local/bin/yamp
+```
+
+Затем запускайте `yamp` из любого терминала.
+
+---
+
+### Сборка из исходников
+
+> Нужен установленный [Go](https://go.dev/dl/). **Если `go` не найден** — скачайте и установите Go с https://go.dev/dl/ (нажмите большую синюю кнопку, установите, перезапустите терминал).
 
 ### Windows (PowerShell)
 
-**Шаг 1.** Откройте PowerShell (или Windows Terminal) и клонируйте репозиторий:
+**Шаг 1.** Установите Go с https://go.dev/dl/ (скачайте `.msi` файл, запустите его, перезапустите PowerShell)
+
+**Шаг 2.** Откройте PowerShell (или Windows Terminal) и клонируйте репозиторий:
 
 ```powershell
 git clone https://github.com/AntonZubritski/yamp.git
 cd yamp
 ```
 
-**Шаг 2.** Соберите:
+**Шаг 3.** Соберите:
 
 ```powershell
 go build -o yamp.exe .
