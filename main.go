@@ -230,6 +230,9 @@ func run(overrides config.Overrides, positional []string) error {
 		go prog.Send(mpris.InitMsg{Svc: svc})
 	}
 
+	// Global media key listener (Windows/macOS — on Linux, MPRIS handles this).
+	go mpris.StartMediaKeyListener(func(msg interface{}) { prog.Send(msg) })
+
 	finalModel, err := prog.Run()
 	if err != nil {
 		return err
